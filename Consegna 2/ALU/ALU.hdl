@@ -1,0 +1,107 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken,  MIT Press.
+// File name: projects/02/ALU.hdl
+
+/**
+ * The ALU (Arithmetic Logic Unit).
+ * Computes one of the following functions:
+ * x+y,  x-y,  y-x,  0,  1,  -1,  x,  y,  -x,  -y,  !x,  !y, 
+ * x+1,  y+1,  x-1,  y-1,  x&y,  x|y on two 16-bit inputs,  
+ * according to 6 input bits denoted zx, nx, zy, ny, f, no.
+ * In addition,  the ALU computes two 1-bit outputs:
+ * if the ALU output == 0,  zr is set to 1; otherwise zr is set to 0;
+ * if the ALU output < 0,  ng is set to 1; otherwise ng is set to 0.
+ */
+
+// Implementation: the ALU logic manipulates the x and y inputs
+// and operates on the resulting values,  as follows:
+// if (zx == 1) set x = 0        // 16-bit constant
+// if (nx == 1) set x = !x       // bitwise not
+// if (zy == 1) set y = 0        // 16-bit constant
+// if (ny == 1) set y = !y       // bitwise not
+// if (f == 1)  set out = x + y  // integer 2's complement addition
+// if (f == 0)  set out = x & y  // bitwise and
+// if (no == 1) set out = !out   // bitwise not
+// if (out == 0) set zr = 1
+// if (out < 0) set ng = 1
+
+CHIP ALU {
+    IN  
+        x[16],   y[16],    // 16-bit inputs        
+        zx,  // zero the x input?
+        nx,  // negate the x input?
+        zy,  // zero the y input?
+        ny,  // negate the y input?
+        f,   // compute out = x + y (if 1) or x & y (if 0)
+        no; // negate the out output?
+
+    OUT 
+        out[16],   // 16-bit output
+        zr,  // 1 if (out == 0),   0 otherwise
+        ng; // 1 if (out < 0),    0 otherwise
+
+    PARTS:
+   // Put you code here:
+
+//ZX, NX, ZY, NY
+
+//ZX AZZERA LA X SE 1
+Mux16(a=x, b=false, sel=zx, out=zerox);
+
+//NX NEGA LA X SE 1
+Not16(in=zerox, out=nox);
+
+//ZY AZZERA LA Y SE 1
+Mux16(a=y, b=false, sel=zy, out=zeroy);
+
+//NY NEGA LA Y SE 1
+Not16(in=zeroy, out=noy);
+
+//QUESTI MUX16 DETERMINANO IN BASE AL VALORE DI NX (sel) IL //VALORE DI X DA DARE IN INPUT ALLE FUNZIONI SUCCESSIVE
+Mux16(a=zerox, b=nox, sel=nx, out=ZxorNx);
+Mux16(a=zeroy, b=noy, sel=ny, out=ZyorNy);
+
+
+//F
+
+//X+Y
+Add16(a=ZxorNx, b=ZyorNy, out=xpy);
+//X&Y
+And16(a=ZxorNx, b=ZyorNy, out=xay);
+
+//SE F (sel) E' 1, L'OUTPUT E' X+Y, ALTRIMENTI X&Y
+Mux16(a=xay, b=xpy, sel=f, out=xy);
+
+
+//NO
+
+//!OUT
+Not16(in=xy, out=noxy);
+
+//SE NO (sel) E'1 OUTPUT VIENE NEGATO
+Mux16(a=xy, b=noxy, sel=no, out[0..7]=out07, out[8..15]=out815,  out=outno);
+
+
+//ZR
+
+//VERIFICA OUTPUT
+Or8Way(in=out07, out=a);
+Or8Way(in=out815, out=b);
+Or (a=a, b=b, out=ab);
+
+//SE OUTPUT==0, ZR=1 E VICEVERSA
+Not(in=ab, out=zr);
+
+
+//NG
+
+//NG=1 SE OUT<0
+And16(a=true, b=outno, out[15]=ng);
+
+
+//OUT
+
+//OUTNO = OUT
+Or16(a=outno, b=false, out=out);
+}
